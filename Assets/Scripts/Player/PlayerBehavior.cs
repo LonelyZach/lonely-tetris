@@ -3,7 +3,15 @@ using UnityEngine.Networking;
 
 public class PlayerBehavior : NetworkBehaviour
 {
-  void Update()
+  public void Start()
+  {
+    if (isServer)
+    {
+      FindObjectOfType<GameMasterBehavior>().RegisterPlayer(this);
+    }
+  }
+
+  public void Update()
   {
     if (!isLocalPlayer)
     {
@@ -25,20 +33,20 @@ public class PlayerBehavior : NetworkBehaviour
   }
 
   [Command]
-  void CmdMoveLeft()
+  public void CmdMoveLeft()
   {
-    gameObject.transform.Translate(new Vector3(-1, 0, 0));
+    FindObjectOfType<GameMasterBehavior>().ProcessPlayerInput(this, Direction.Left);
   }
 
   [Command]
-  void CmdMoveRight()
+  public void CmdMoveRight()
   {
-    gameObject.transform.Translate(new Vector3(1, 0, 0));
+    FindObjectOfType<GameMasterBehavior>().ProcessPlayerInput(this, Direction.Right);
   }
 
   [Command]
-  void CmdMoveDown()
+  public void CmdMoveDown()
   {
-    gameObject.transform.Translate(new Vector3(0, -1, 0));
+    FindObjectOfType<GameMasterBehavior>().ProcessPlayerInput(this, Direction.Down);
   }
 }
