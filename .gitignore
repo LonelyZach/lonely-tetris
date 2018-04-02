@@ -4,6 +4,7 @@
 /[Bb]uild/
 /[Bb]uilds/
 /Assets/AssetStoreTools*
+/LonelyTetris_Data/
 
 # Visual Studio 2015 cache directory
 /.vs/
@@ -22,6 +23,9 @@ ExportedObj/
 *.booproj
 *.svd
 *.pdb
+*.meta
+*.assets
+*.asset
 
 # Unity3D generated meta files
 *.pidb.meta
