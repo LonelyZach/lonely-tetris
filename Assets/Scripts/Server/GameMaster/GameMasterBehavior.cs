@@ -5,8 +5,10 @@ using UnityEngine.Networking;
 
 public class GameMasterBehavior : NetworkBehaviour
 {
+  public GameObject Field;
   public GameObject TetrominoFactory;
 
+  private FieldBehavior _field;
   private TetrominoFactoryBehavior _tetrominoFactory;
   private IList<PlayerBehavior> _players;
   private IList<TetrominoBehavior> _tetrominos;
@@ -19,6 +21,7 @@ public class GameMasterBehavior : NetworkBehaviour
     _tetrominos = new List<TetrominoBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
+    _field = Field.GetComponent<FieldBehavior>();
   }
 
   // Update is called once per frame
@@ -37,11 +40,6 @@ public class GameMasterBehavior : NetworkBehaviour
     _players.Add(playerToRegister);
   }
 
-  public void RegisterTetromino(TetrominoBehavior tetrominoToRegister)
-  {
-    _tetrominos.Add(tetrominoToRegister);
-  }
-
   public void ProcessPlayerInput(PlayerBehavior player, Direction input)
   {
     if(!_activeTetrominoByPlayer.ContainsKey(player))
@@ -51,7 +49,8 @@ public class GameMasterBehavior : NetworkBehaviour
     }
 
     var activeTetromino = _activeTetrominoByPlayer[player];
-    activeTetromino.Move(input);
+
+    _field.TryMoveBlocksAsGroup(activeTetromino.GetBlocks(), input);
   }
 
   private void SpawnNewTetrominosIfNeeded()
@@ -62,9 +61,12 @@ public class GameMasterBehavior : NetworkBehaviour
       return;
     }
 
+    var distanceBetweenPlayerSpawns = 4;
+    var i = 1;
     foreach(var player in _players)
     {
-       var tetromino = _tetrominoFactory.SpawnTetromino();
+       var tetromino = _tetrominoFactory.SpawnTetromino(distanceBetweenPlayerSpawns * i++);
+      _tetrominos.Add(tetromino);
 
       if (!_activeTetrominoByPlayer.ContainsKey(player))
       {
