@@ -43,7 +43,7 @@ public class GameMasterBehavior : NetworkBehaviour
 
   public void ProcessPlayerInput(PlayerBehavior player, Direction input)
   {
-    if(!_activeTetrominoByPlayer.ContainsKey(player))
+    if(!_activeTetrominoByPlayer.ContainsKey(player) || _activeTetrominoByPlayer[player] == null)
     {
       // The player has not been assigned an active tetromino. Do nothing.
       return;
@@ -56,7 +56,7 @@ public class GameMasterBehavior : NetworkBehaviour
 
   private void SpawnNewTetrominosIfNeeded()
   {
-    if (_players.All(p => _activeTetrominoByPlayer.ContainsKey(p) && _activeTetrominoByPlayer[p] != null))
+    if (ActiveTetrominos().Any())
     {
       // If any players are still controlling an active tetromino, do not spawn new tetrominos.
       return;
@@ -84,16 +84,33 @@ public class GameMasterBehavior : NetworkBehaviour
   private void MoveTetrominosDownIfNeeded()
   {
     _timeToNextTetrominoDropInSeconds -= Time.deltaTime;
-
-    if(_timeToNextTetrominoDropInSeconds <= 0.00f)
+    if (_timeToNextTetrominoDropInSeconds > 0.00f)
     {
-      _field.TryMoveMultipleTetrominos(_activeTetrominoByPlayer.Values.ToList(), Direction.Down);
-      ResetTetrominoDropCounter();
+      return;
     }
+
+    var results = _field.TryMoveMultipleTetrominos(ActiveTetrominos(), Direction.Down);
+
+    // Each result with a value "false" indicates a tetromino that could not drop down. This means that the tetromino has landed on the bottom.
+    // Time to destroy these tetromino (removing palyer control).
+    foreach (var result in results.Where(x => x.Value == false))
+    {
+      var landedTetromino = result.Key;
+      var playerControllingTetromino = _activeTetrominoByPlayer.Single(x => x.Value == landedTetromino).Key;
+      _activeTetrominoByPlayer[playerControllingTetromino] = null;
+      Destroy(landedTetromino);
+    }
+
+    ResetTetrominoDropCounter();
   }
 
   private void ResetTetrominoDropCounter()
   {
     _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
+  }
+
+  private IList<TetrominoBehavior> ActiveTetrominos()
+  {
+    return _activeTetrominoByPlayer.Where(x => x.Value != null).Select(x => x.Value).ToList();
   }
 }

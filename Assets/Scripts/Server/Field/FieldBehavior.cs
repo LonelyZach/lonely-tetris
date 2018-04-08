@@ -90,20 +90,13 @@ public class FieldBehavior : NetworkBehaviour
     {
       foreach (var block in tetromino.Blocks)
       {
-        if (IsWallAdjacent(block, direction))
-        {
-          noNewFailures = false;
-          failureTetrominos.Add(tetromino);
-          continue;
-        }
-
-        // We need to check if the blocks in the way of our block are part of the block group. Because, if they are, it's OK to move the block, since the adjacent block will move too.
         var adjacentBlock = GetBlockAdjacent(block, direction);
-        if (adjacentBlock != null && !allBlocks.Contains(adjacentBlock))
+        if (IsWallAdjacent(block, direction)
+         || (adjacentBlock != null && !allBlocks.Contains(adjacentBlock))) // We need to check if the blocks in the way of our block are part of the block group. Because, if they are, it's OK to move the block, since the adjacent block will move too.
         {
           noNewFailures = false;
           failureTetrominos.Add(tetromino);
-          continue;
+          break;
         }
       }
     }
@@ -111,10 +104,7 @@ public class FieldBehavior : NetworkBehaviour
     if(noNewFailures)
     {
       // We were able to move all the tetrominos. Break the recursive loop.
-      foreach(var tetromino in tetrominos)
-      {
-        MoveBlocks(tetromino.Blocks, direction);
-      }
+      MoveBlocks(tetrominos.SelectMany(x => x.Blocks).ToList(), direction);
 
       var results = new Dictionary<TetrominoBehavior, bool>();
       foreach(var tetromino in tetrominos)
@@ -169,20 +159,24 @@ public class FieldBehavior : NetworkBehaviour
       switch (direction)
       {
         case Direction.Up:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X, coordinates.Y + 1));
-          block.transform.Translate(new Vector3(0, 1, 0));
+          coordinates = new Coordinates(coordinates.X, coordinates.Y + 1);
+          newBlockCoordinates.Add(block, coordinates);
+          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
           break;
         case Direction.Down:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X, coordinates.Y - 1));
-          block.transform.Translate(new Vector3(0, -1, 0));
+          coordinates = new Coordinates(coordinates.X, coordinates.Y - 1);
+          newBlockCoordinates.Add(block, coordinates);
+          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
           break;
         case Direction.Left:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X - 1, coordinates.Y));
-          block.transform.Translate(new Vector3(-1, 0, 0));
+          coordinates = new Coordinates(coordinates.X - 1, coordinates.Y);
+          newBlockCoordinates.Add(block, coordinates);
+          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
           break;
         case Direction.Right:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X + 1, coordinates.Y));
-          block.transform.Translate(new Vector3(1, 0, 0));
+          coordinates = new Coordinates(coordinates.X + 1, coordinates.Y);
+          newBlockCoordinates.Add(block, coordinates);
+          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
           break;
       }
     }
