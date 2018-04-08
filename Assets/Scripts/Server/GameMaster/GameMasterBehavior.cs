@@ -5,23 +5,23 @@ using UnityEngine.Networking;
 
 public class GameMasterBehavior : NetworkBehaviour
 {
+  public const float TimeBetweenTetriminoDropsInSeconds = 1.00f;
   public GameObject Field;
   public GameObject TetrominoFactory;
 
   private FieldBehavior _field;
   private TetrominoFactoryBehavior _tetrominoFactory;
   private IList<PlayerBehavior> _players;
-  private IList<TetrominoBehavior> _tetrominos;
-
   private IDictionary<PlayerBehavior, TetrominoBehavior> _activeTetrominoByPlayer;
+  private float _timeToNextTetrominoDropInSeconds;
 
   // Use this for initialization
   public void Start () {
     _players = new List<PlayerBehavior>();
-    _tetrominos = new List<TetrominoBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
     _field = Field.GetComponent<FieldBehavior>();
+    _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
   }
 
   // Update is called once per frame
@@ -33,6 +33,7 @@ public class GameMasterBehavior : NetworkBehaviour
     }
 
     SpawnNewTetrominosIfNeeded();
+    MoveTetrominosDownIfNeeded();
   }
 
   public void RegisterPlayer(PlayerBehavior playerToRegister)
@@ -50,7 +51,7 @@ public class GameMasterBehavior : NetworkBehaviour
 
     var activeTetromino = _activeTetrominoByPlayer[player];
 
-    _field.TryMoveBlocksAsGroup(activeTetromino.GetBlocks(), input);
+    _field.TryMoveTetromino(activeTetromino, input);
   }
 
   private void SpawnNewTetrominosIfNeeded()
@@ -66,7 +67,6 @@ public class GameMasterBehavior : NetworkBehaviour
     foreach(var player in _players)
     {
        var tetromino = _tetrominoFactory.SpawnTetromino(distanceBetweenPlayerSpawns * i++);
-      _tetrominos.Add(tetromino);
 
       if (!_activeTetrominoByPlayer.ContainsKey(player))
       {
@@ -77,5 +77,23 @@ public class GameMasterBehavior : NetworkBehaviour
         _activeTetrominoByPlayer[player] = tetromino;
       }
     }
+
+    ResetTetrominoDropCounter();
+  }
+
+  private void MoveTetrominosDownIfNeeded()
+  {
+    _timeToNextTetrominoDropInSeconds -= Time.deltaTime;
+
+    if(_timeToNextTetrominoDropInSeconds <= 0.00f)
+    {
+      _field.TryMoveMultipleTetrominos(_activeTetrominoByPlayer.Values.ToList(), Direction.Down);
+      ResetTetrominoDropCounter();
+    }
+  }
+
+  private void ResetTetrominoDropCounter()
+  {
+    _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
   }
 }

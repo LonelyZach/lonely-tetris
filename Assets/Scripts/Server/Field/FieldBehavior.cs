@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -34,38 +35,125 @@ public class FieldBehavior : NetworkBehaviour
   /// <summary>
   /// Moves a block, but only if there is not another block or a wall in the way.
   /// </summary>
-  public void TryMoveBlock(BlockBehavior block, Direction direction)
+  /// <returns>A <c>bool</c> indicating if the move suceeded.</returns>
+  public bool TryMoveBlock(BlockBehavior block, Direction direction)
   {
     if (IsWallAdjacent(block, direction) || IsblockAdjacent(block, direction))
     {
-      return;
+      return false;
     }
 
     MoveBlocks(new List<BlockBehavior>() { block }, direction);
+    return true;
   }
 
   /// <summary>
-  /// Moves a group of block, but only if there is not another block or a wall in the way.
-  /// If any of the blocks cannot move, none of them move.
+  /// Moves a tetromino, but only if there is not another block or a wall in the way.
   /// </summary>
-  public void TryMoveBlocksAsGroup(IList<BlockBehavior> blocks, Direction direction)
+  /// <returns>A <c>bool</c> indicating if the move suceeded.</returns>
+  public bool TryMoveTetromino(TetrominoBehavior tetromino, Direction direction)
   {
-    foreach (var block in blocks)
+    foreach (var block in tetromino.Blocks)
     {
       if (IsWallAdjacent(block, direction))
       {
-        return;
+        return false;
       }
 
       // We need to check if the blocks in the way of our block are part of the block group. Because, if they are, it's OK to move the block, since the adjacent block will move too.
       var adjacentBlock = GetBlockAdjacent(block, direction);
-      if (adjacentBlock != null && !blocks.Contains(adjacentBlock))
+      if (adjacentBlock != null && !tetromino.Blocks.Contains(adjacentBlock))
       {
-        return;
+        return false;
       }
     }
 
-    MoveBlocks(blocks, direction);
+    MoveBlocks(tetromino.Blocks, direction);
+    return true;
+  }
+
+  /// <summary>
+  /// Moves a number of tetrominos. The tetrominos can pass through the squares vacated by others tetrominos in the moving group.
+  /// If one tetromino cannot move, the others still can.
+  /// </summary>
+  /// <returns>A dictionary containing the <see cref="TetrominoBehavior"/>s and <c>bool</c>s. The <c>bool</c>s indicate if the tetrominos sucesfully moved.</returns>
+  public IDictionary<TetrominoBehavior, bool> TryMoveMultipleTetrominos(IList<TetrominoBehavior> tetrominos, Direction direction)
+  {
+    var failureTetrominos = new List<TetrominoBehavior>();
+
+    // Here we'll use a similar algorythm to TryMoveTetromino to find tetrominos that will be blocked by blocks or walls not in the success group.
+    // These will be the tetrominos that will have to stop moving. We'll mark them in the failure group and then recursivley compute for the remaining success tetrominos.
+    // This lets tetrominos move to squares that will be vacated by other tetrominos.
+    var noNewFailures = true;
+    var allBlocks = tetrominos.SelectMany(x => x.Blocks);
+    foreach (var tetromino in tetrominos)
+    {
+      foreach (var block in tetromino.Blocks)
+      {
+        if (IsWallAdjacent(block, direction))
+        {
+          noNewFailures = false;
+          failureTetrominos.Add(tetromino);
+          continue;
+        }
+
+        // We need to check if the blocks in the way of our block are part of the block group. Because, if they are, it's OK to move the block, since the adjacent block will move too.
+        var adjacentBlock = GetBlockAdjacent(block, direction);
+        if (adjacentBlock != null && !allBlocks.Contains(adjacentBlock))
+        {
+          noNewFailures = false;
+          failureTetrominos.Add(tetromino);
+          continue;
+        }
+      }
+    }
+
+    if(noNewFailures)
+    {
+      // We were able to move all the tetrominos. Break the recursive loop.
+      foreach(var tetromino in tetrominos)
+      {
+        MoveBlocks(tetromino.Blocks, direction);
+      }
+
+      var results = new Dictionary<TetrominoBehavior, bool>();
+      foreach(var tetromino in tetrominos)
+      {
+        results.Add(tetromino, true);
+      }
+
+      return results;
+    }
+    else if(failureTetrominos.Count() == tetrominos.Count())
+    {
+      // We were not able to move any of the tetrominos. Break the recursive loop.
+      var results = new Dictionary<TetrominoBehavior, bool>();
+      foreach (var tetromino in tetrominos)
+      {
+        results.Add(tetromino, false);
+      }
+
+      return results;
+    }
+    else
+    {
+      // We were able to move some of the tetrominos. Remove the tetrominos that could not move and resurse on the remaining.
+      var results = new Dictionary<TetrominoBehavior, bool>();
+      foreach (var tetromino in failureTetrominos)
+      {
+        results.Add(tetromino, false);
+      }
+
+      var remainingTetrominos = tetrominos.Where(x => !failureTetrominos.Contains(x)).ToList();
+      var resultsForRemainingTetrominos = TryMoveMultipleTetrominos(remainingTetrominos, direction);
+
+      foreach(var recursiveResult in resultsForRemainingTetrominos)
+      {
+        results.Add(recursiveResult.Key, recursiveResult.Value);
+      }
+
+      return results;
+    }
   }
 
   private void MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
