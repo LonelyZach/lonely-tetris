@@ -32,6 +32,7 @@ public class GameMasterBehavior : NetworkBehaviour
       return;
     }
 
+    RemoveCompleteLines();
     SpawnNewTetrominosIfNeeded();
     MoveTetrominosDownIfNeeded();
   }
@@ -112,5 +113,14 @@ public class GameMasterBehavior : NetworkBehaviour
   private IList<TetrominoBehavior> ActiveTetrominos()
   {
     return _activeTetrominoByPlayer.Where(x => x.Value != null).Select(x => x.Value).ToList();
+  }
+
+  private void RemoveCompleteLines()
+  {
+    var blocksToRemove = _field.FindBlocksComprisingCompleteLines();
+    if(blocksToRemove.Any())
+    {
+      _field.RemoveBlocks(blocksToRemove.ToList());
+    }
   }
 }
