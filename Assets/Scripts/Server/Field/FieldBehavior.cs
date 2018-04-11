@@ -146,6 +146,40 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
+  public void RemoveBlocks(IList<BlockBehavior> blocks)
+  {
+    foreach(var block in blocks)
+    {
+      RemoveBlock(block);
+    }
+  }
+
+  public IEnumerable<BlockBehavior> FindBlocksComprisingCompleteLines()
+  {
+    for (int y = 0; y < Height; y++)
+    {
+      var isFullLine = true;
+
+      for (int x = 0; x < Width; x++)
+      {
+        if (BlockAtCoordiantes(new Coordinates(x, y)) == null)
+        {
+          isFullLine = false;
+          break;
+        }
+      }
+
+      if (isFullLine)
+      {
+        // All of the squares on this line had blocks. We should clear it. 
+        for (int x = 0; x < Width; x++)
+        {
+          yield return BlockAtCoordiantes(new Coordinates(x, y));
+        }
+      }
+    }
+  }
+
   private void MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
   {
     IDictionary<BlockBehavior, Coordinates> newBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
@@ -267,5 +301,12 @@ public class FieldBehavior : NetworkBehaviour
 
     Debug.LogError("Could not find coordinates for a block");
     return new Coordinates(0, 0);
+  }
+
+  private void RemoveBlock(BlockBehavior block)
+  {
+    var coordinates = CoordinatesForBlock(block);
+    _blocks[coordinates.X, coordinates.Y] = null;
+    NetworkServer.Destroy(block.gameObject);
   }
 }
