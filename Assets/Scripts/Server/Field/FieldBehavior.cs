@@ -194,7 +194,7 @@ public class FieldBehavior : NetworkBehaviour
       var coordinates = CoordinatesForBlock(block);
 
       _blocks[coordinates.X, coordinates.Y] = null;
-      var newCoords = new Coordinates(coordinates.X + (int)netTranslation.x, coordinates.Y + (int)netTranslation.y);
+      var newCoords = new Coordinates(coordinates.X + Mathf.RoundToInt(netTranslation.x), coordinates.Y + Mathf.RoundToInt(netTranslation.y));
       newBlockCoordinates.Add(block, newCoords);
       block.transform.position = CoordinatesToGameWorldPosition(newCoords);
     }
@@ -206,8 +206,6 @@ public class FieldBehavior : NetworkBehaviour
     }
     return netTranslation;
   }
-
-
 
   /// <summary>
   /// Rotates a group of blocks if possible
@@ -255,7 +253,7 @@ public class FieldBehavior : NetworkBehaviour
     {
       shift = Direction.Down;
     }
-    else if(!TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Left))
+    else if(TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Left))
     {
       shift = Direction.Left;
     }
@@ -278,9 +276,8 @@ public class FieldBehavior : NetworkBehaviour
     foreach (var block in blocks)
     {
       Coordinates originBlock = CoordinatesForBlock(block);
-      Coordinates newBlockLocation = newBlockCoordinates[block];
       _blocks[originBlock.X, originBlock.Y] = null;
-      block.transform.position = CoordinatesToGameWorldPosition(newBlockLocation);
+      block.transform.position = CoordinatesToGameWorldPosition(newBlockCoordinates[block]);
     }
 
     // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
@@ -311,10 +308,10 @@ public class FieldBehavior : NetworkBehaviour
       switch (direction)
       {
         case Direction.Down:
-          coordinate.Y += 1;
+          coordinate.Y -= 1;
           break;
         case Direction.Up:
-          coordinate.Y -= 1;
+          coordinate.Y += 1;
           break;
         case Direction.Left:
           coordinate.X -= 1;

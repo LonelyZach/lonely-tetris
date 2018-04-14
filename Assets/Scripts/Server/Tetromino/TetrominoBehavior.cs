@@ -27,8 +27,8 @@ public class TetrominoBehavior : MonoBehaviour
   }
   public void Translate(Vector3 translation)
   {
-    _rotatePoint.X += (int)translation.x;
-    _rotatePoint.Y += (int)translation.y;
+    _rotatePoint.X += Mathf.RoundToInt(translation.x);
+    _rotatePoint.Y += Mathf.RoundToInt(translation.y);
   }
 
   public void AddBlock(BlockBehavior block)
