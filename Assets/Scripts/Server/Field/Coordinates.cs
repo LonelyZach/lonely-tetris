@@ -20,4 +20,12 @@ public class Coordinates {
   {
     return new Coordinates(first.X - second.X, first.Y - second.Y);
   }
+  public Vector3 getVector3()
+  {
+    return new Vector3(X, Y, 0);
+  }
+  public Vector2 getVector2()
+  {
+    return new Vector2(X, Y);
+  }
 }
