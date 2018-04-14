@@ -1,10 +1,9 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Networking;
+﻿using UnityEngine;
 
 public class BlockBehavior : MonoBehaviour
 {
+  public bool IsSettled = false;
+ 
 	// Use this for initialization
 	void Start () {
 		

@@ -28,7 +28,7 @@ public class TetrominoFactoryBehavior : NetworkBehaviour
 
     foreach(var position in blockPositions)
     {
-      var block = _field.SpawnBlock(new Coordinates(position.X, position.Y));
+      var block = _field.SpawnBlock(new Coordinates(position.X, position.Y), isSettled: false);
       tetromino.AddBlock(block);
     }
 

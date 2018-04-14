@@ -16,7 +16,8 @@ public class GameMasterBehavior : NetworkBehaviour
   private float _timeToNextTetrominoDropInSeconds;
 
   // Use this for initialization
-  public void Start () {
+  public void Start()
+  {
     _players = new List<PlayerBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
@@ -25,13 +26,15 @@ public class GameMasterBehavior : NetworkBehaviour
   }
 
   // Update is called once per frame
-  public void Update () {
-    if(FindObjectsOfType<PlayerBehavior>().Count() < 2)
+  public void Update()
+  {
+    if (FindObjectsOfType<PlayerBehavior>().Count() < 2)
     {
       // Do not start the game until we have 2 palyers connected.
       return;
     }
 
+    //PunishPlayerIfNeeded();
     SpawnNewTetrominosIfNeeded();
     MoveTetrominosDownIfNeeded();
   }
@@ -43,7 +46,7 @@ public class GameMasterBehavior : NetworkBehaviour
 
   public void ProcessPlayerInput(PlayerBehavior player, Direction input)
   {
-    if(!_activeTetrominoByPlayer.ContainsKey(player) || _activeTetrominoByPlayer[player] == null)
+    if (!_activeTetrominoByPlayer.ContainsKey(player) || _activeTetrominoByPlayer[player] == null)
     {
       // The player has not been assigned an active tetromino. Do nothing.
       return;
@@ -52,6 +55,16 @@ public class GameMasterBehavior : NetworkBehaviour
     var activeTetromino = _activeTetrominoByPlayer[player];
 
     _field.TryMoveTetromino(activeTetromino, input);
+  }
+
+  /// <summary>
+  /// Adds a line of new blocks to the bottom of the screen and moves all blocks up.
+  /// Only call this when there are no Tetriminos on the screen.
+  /// </summary>
+  public void PunishPlayerIfNeeded()
+  {
+    // TODO call this when punishment is required. 
+    _field.AddBottomRow();
   }
 
   private void SpawnNewTetrominosIfNeeded()
@@ -64,9 +77,9 @@ public class GameMasterBehavior : NetworkBehaviour
 
     var distanceBetweenPlayerSpawns = 4;
     var i = 1;
-    foreach(var player in _players)
+    foreach (var player in _players)
     {
-       var tetromino = _tetrominoFactory.SpawnTetromino(distanceBetweenPlayerSpawns * i++);
+      var tetromino = _tetrominoFactory.SpawnTetromino(distanceBetweenPlayerSpawns * i++);
 
       if (!_activeTetrominoByPlayer.ContainsKey(player))
       {
@@ -96,6 +109,12 @@ public class GameMasterBehavior : NetworkBehaviour
     foreach (var result in results.Where(x => x.Value == false))
     {
       var landedTetromino = result.Key;
+
+      foreach (var block in landedTetromino.Blocks)
+      {
+        block.IsSettled = true;
+      }
+
       var playerControllingTetromino = _activeTetrominoByPlayer.Single(x => x.Value == landedTetromino).Key;
       _activeTetrominoByPlayer[playerControllingTetromino] = null;
       Destroy(landedTetromino);

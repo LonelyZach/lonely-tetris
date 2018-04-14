@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -7,8 +8,8 @@ public class FieldBehavior : NetworkBehaviour
 {
   public GameObject BlockPrefab;
 
-  public static int Width = 21;
-  public static int Height = 35;
+  public const int Width = 21;
+  public const int Height = 35;
 
   private BlockBehavior[,] _blocks = new BlockBehavior[Width, Height];
 
@@ -17,7 +18,7 @@ public class FieldBehavior : NetworkBehaviour
     gameObject.transform.localScale = new Vector3(Width, Height, 1);
   }
 
-  public BlockBehavior SpawnBlock(Coordinates coordinates)
+  public BlockBehavior SpawnBlock(Coordinates coordinates, bool isSettled)
   {
     if (_blocks[coordinates.X, coordinates.Y] != null)
     {
@@ -26,6 +27,7 @@ public class FieldBehavior : NetworkBehaviour
     }
 
     var block = Instantiate(BlockPrefab).GetComponent<BlockBehavior>();
+    block.IsSettled = isSettled;
     block.transform.localPosition = CoordinatesToGameWorldPosition(coordinates);
     NetworkServer.Spawn(block.gameObject);
     _blocks[coordinates.X, coordinates.Y] = block;
@@ -101,20 +103,20 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
 
-    if(noNewFailures)
+    if (noNewFailures)
     {
       // We were able to move all the tetrominos. Break the recursive loop.
       MoveBlocks(tetrominos.SelectMany(x => x.Blocks).ToList(), direction);
 
       var results = new Dictionary<TetrominoBehavior, bool>();
-      foreach(var tetromino in tetrominos)
+      foreach (var tetromino in tetrominos)
       {
         results.Add(tetromino, true);
       }
 
       return results;
     }
-    else if(failureTetrominos.Count() == tetrominos.Count())
+    else if (failureTetrominos.Count() == tetrominos.Count())
     {
       // We were not able to move any of the tetrominos. Break the recursive loop.
       var results = new Dictionary<TetrominoBehavior, bool>();
@@ -137,12 +139,23 @@ public class FieldBehavior : NetworkBehaviour
       var remainingTetrominos = tetrominos.Where(x => !failureTetrominos.Contains(x)).ToList();
       var resultsForRemainingTetrominos = TryMoveMultipleTetrominos(remainingTetrominos, direction);
 
-      foreach(var recursiveResult in resultsForRemainingTetrominos)
+      foreach (var recursiveResult in resultsForRemainingTetrominos)
       {
         results.Add(recursiveResult.Key, recursiveResult.Value);
       }
 
       return results;
+    }
+  }
+
+  public void AddBottomRow()
+  {
+    var allBlocks = GetAllSettledBlocks();
+    MoveBlocks(allBlocks, Direction.Up);
+
+    for (int i = 0; i < Width; ++i)
+    {
+      SpawnBlock(new Coordinates(i, 0), isSettled: true);
     }
   }
 
@@ -182,7 +195,7 @@ public class FieldBehavior : NetworkBehaviour
     }
 
     // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
-    foreach(var newCoordiantes in newBlockCoordinates)
+    foreach (var newCoordiantes in newBlockCoordinates)
     {
       _blocks[newCoordiantes.Value.X, newCoordiantes.Value.Y] = newCoordiantes.Key;
     }
@@ -192,7 +205,7 @@ public class FieldBehavior : NetworkBehaviour
   {
     var coordinates = CoordinatesForBlock(block);
 
-    if(IsWallAdjacent(coordinates, direction))
+    if (IsWallAdjacent(coordinates, direction))
     {
       return null; // If there is a wall in the target direction, there is not a block there. Also, we're protecting against out-of-bounds errors below.
     }
@@ -258,7 +271,7 @@ public class FieldBehavior : NetworkBehaviour
     {
       for (int y = 0; y < Height; y++)
       {
-        if(_blocks[x, y] == block)
+        if (_blocks[x, y] == block)
         {
           return new Coordinates(x, y);
         }
@@ -267,5 +280,25 @@ public class FieldBehavior : NetworkBehaviour
 
     Debug.LogError("Could not find coordinates for a block");
     return new Coordinates(0, 0);
+  }
+
+  private IList<BlockBehavior> GetAllSettledBlocks()
+  {
+    var result = new List<BlockBehavior>(_blocks.Length);
+
+    for(int row = 0; row < Math.Min(_blocks.GetLength(0), Height); row++)
+    {
+      for (int column = 0; column < Math.Min(_blocks.GetLength(1), Width); column++)
+      {
+        var block = _blocks[row, column];
+
+        if (block != null && block.IsSettled)
+        {
+          result.Add(block);
+        }
+      }
+    }
+
+    return result;
   }
 }
