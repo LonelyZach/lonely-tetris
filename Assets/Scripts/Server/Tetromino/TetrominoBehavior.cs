@@ -4,7 +4,7 @@ using UnityEngine.Networking;
 
 public class TetrominoBehavior : MonoBehaviour
 {
-  private IList<BlockBehavior> Blocks = new List<BlockBehavior>();
+  public IList<BlockBehavior> Blocks = new List<BlockBehavior>();
   private Coordinates _rotatePoint;
 
   // Use this for initialization

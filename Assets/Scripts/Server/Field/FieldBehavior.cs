@@ -51,9 +51,9 @@ public class FieldBehavior : NetworkBehaviour
   /// <summary>
   /// Moves a tetromino, but only if there is not another block or a wall in the way.
   /// </summary>
-  public void TryMoveBlocksAsGroup(TetrominoBehavior tetromino, Direction direction)
+  public bool TryMoveTetromino(TetrominoBehavior tetromino, Direction direction)
   {
-    var blocks = tetromino.GetBlocks();
+    var blocks = tetromino.Blocks;
     foreach (var block in blocks)
     {
       if (IsWallAdjacent(block, direction))
@@ -69,7 +69,8 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
 
-    MoveBlocks(tetromino.Blocks, direction);
+    MoveTetromino(tetromino, direction);
+    
     return true;
   }
 
@@ -105,11 +106,10 @@ public class FieldBehavior : NetworkBehaviour
     if(noNewFailures)
     {
       // We were able to move all the tetrominos. Break the recursive loop.
-      MoveBlocks(tetrominos.SelectMany(x => x.Blocks).ToList(), direction);
-
       var results = new Dictionary<TetrominoBehavior, bool>();
-      foreach(var tetromino in tetrominos)
+      foreach (var tetromino in tetrominos)
       {
+        MoveTetromino(tetromino, direction);
         results.Add(tetromino, true);
       }
 
@@ -147,6 +147,24 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
+  /// <summary>
+  /// Wrapper around MoveBlocks to represent a change of a tetromino object proper instead of just a set of blocks.
+  /// This helps maintain the point of rotation within the tetromino
+  /// </summary>
+  /// <param name="tetromino"></param>
+  /// <param name="direction"></param>
+  private void MoveTetromino(TetrominoBehavior tetromino, Direction direction)
+  {
+    var result = MoveBlocks(tetromino.Blocks, direction);
+    tetromino.Translate(result);
+  }
+
+  /// <summary>
+  /// Moves a specified set of blocks in a direction by unity
+  /// </summary>
+  /// <param name="blocks"></param>
+  /// <param name="direction"></param>
+  /// <returns></returns>
   private Vector3 MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
   {
     IDictionary<BlockBehavior, Coordinates> newBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
@@ -194,7 +212,7 @@ public class FieldBehavior : NetworkBehaviour
   public void TryRotateBlocksAsGroup(TetrominoBehavior tetromino, float theta)
   {
     theta *= Mathf.Deg2Rad;
-    var blocks = tetromino.GetBlocks();
+    var blocks = tetromino.Blocks;
     var rotatePoint = tetromino.GetRotatePoint();
     float sinTheta = Mathf.Sin(theta);
     float cosTheta = Mathf.Cos(theta);
