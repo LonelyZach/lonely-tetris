@@ -12,4 +12,12 @@ public class Coordinates {
     X = x;
     Y = y;
   }
+  public static Coordinates add(Coordinates first, Coordinates second)
+  {
+    return new Coordinates(first.X + second.X, first.Y + second.Y);
+  }
+  public static Coordinates subtract(Coordinates first, Coordinates second)
+  {
+    return new Coordinates(first.X - second.X, first.Y - second.Y);
+  }
 }

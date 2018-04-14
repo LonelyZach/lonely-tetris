@@ -50,7 +50,14 @@ public class GameMasterBehavior : NetworkBehaviour
 
     var activeTetromino = _activeTetrominoByPlayer[player];
 
-    _field.TryMoveBlocksAsGroup(activeTetromino.GetBlocks(), input);
+    if (input == Direction.Up)
+    {
+      _field.TryRotateBlocksAsGroup(activeTetromino, 90);
+    }
+    else
+    {
+      _field.TryMoveBlocksAsGroup(activeTetromino, input);
+    }
   }
 
   private void SpawnNewTetrominosIfNeeded()

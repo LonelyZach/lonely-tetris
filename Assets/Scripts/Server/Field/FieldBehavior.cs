@@ -44,12 +44,14 @@ public class FieldBehavior : NetworkBehaviour
     MoveBlocks(new List<BlockBehavior>() { block }, direction);
   }
 
+
   /// <summary>
   /// Moves a group of block, but only if there is not another block or a wall in the way.
   /// If any of the blocks cannot move, none of them move.
   /// </summary>
-  public void TryMoveBlocksAsGroup(IList<BlockBehavior> blocks, Direction direction)
+  public void TryMoveBlocksAsGroup(TetrominoBehavior tetromino, Direction direction)
   {
+    var blocks = tetromino.GetBlocks();
     foreach (var block in blocks)
     {
       if (IsWallAdjacent(block, direction))
@@ -65,12 +67,31 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
 
-    MoveBlocks(blocks, direction);
+    Vector3 netTranslation = MoveBlocks(blocks, direction);
+    tetromino.Translate(netTranslation);
   }
 
-  private void MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
+  private Vector3 MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
   {
     IDictionary<BlockBehavior, Coordinates> newBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
+    Vector3 netTranslation = new Vector3(0, 0, 0);
+
+    switch(direction)
+    {
+      case Direction.Down:
+        netTranslation = new Vector3(0, -1, 0);
+        break;
+      case Direction.Left:
+        netTranslation = new Vector3(-1, 0, 0);
+        break;
+      case Direction.Right:
+        netTranslation = new Vector3(1, 0, 0);
+        break;
+
+      default:
+        netTranslation = new Vector3(0, 0, 0);
+        break;
+    }
 
     foreach (var block in blocks)
     {
@@ -78,31 +99,55 @@ public class FieldBehavior : NetworkBehaviour
 
       _blocks[coordinates.X, coordinates.Y] = null;
 
-      switch (direction)
-      {
-        case Direction.Up:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X, coordinates.Y + 1));
-          block.transform.Translate(new Vector3(0, 1, 0));
-          break;
-        case Direction.Down:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X, coordinates.Y - 1));
-          block.transform.Translate(new Vector3(0, -1, 0));
-          break;
-        case Direction.Left:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X - 1, coordinates.Y));
-          block.transform.Translate(new Vector3(-1, 0, 0));
-          break;
-        case Direction.Right:
-          newBlockCoordinates.Add(block, new Coordinates(coordinates.X + 1, coordinates.Y));
-          block.transform.Translate(new Vector3(1, 0, 0));
-          break;
-      }
+      newBlockCoordinates.Add(block, new Coordinates(coordinates.X + (int)netTranslation.x, coordinates.Y + (int)netTranslation.y));
+      block.transform.Translate(netTranslation);
     }
 
     // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
-    foreach(var newCoordiantes in newBlockCoordinates)
+    foreach(var newCoordinates in newBlockCoordinates)
     {
-      _blocks[newCoordiantes.Value.X, newCoordiantes.Value.Y] = newCoordiantes.Key;
+      _blocks[newCoordinates.Value.X, newCoordinates.Value.Y] = newCoordinates.Key;
+    }
+    return netTranslation;
+  }
+
+  /// <summary>
+  /// Rotates a group of blocks if possible
+  /// </summary>
+  /// <param name="tetromino"></param>
+  public void TryRotateBlocksAsGroup(TetrominoBehavior tetromino, float theta)
+  {
+    theta *= Mathf.Deg2Rad;
+    var blocks = tetromino.GetBlocks();
+    var rotatePoint = tetromino.GetRotatePoint();
+    float sinTheta = Mathf.Sin(theta);
+    float cosTheta = Mathf.Cos(theta);
+    IDictionary<BlockBehavior, Coordinates> newBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
+
+    foreach (var block in blocks)
+    {
+      Coordinates originBlock = CoordinatesForBlock(block);
+      _blocks[originBlock.X, originBlock.Y] = null;
+      
+      Coordinates transformedBlock = Coordinates.subtract(originBlock, rotatePoint);
+
+      Coordinates newBlock = new Coordinates(0, 0);
+
+      newBlock.X = Mathf.RoundToInt(transformedBlock.X * cosTheta - transformedBlock.Y * sinTheta);
+      newBlock.Y = Mathf.RoundToInt(transformedBlock.Y * cosTheta + transformedBlock.X * sinTheta);
+
+      newBlock = Coordinates.add(rotatePoint, newBlock);
+
+      Vector3 netTranslation = new Vector3(newBlock.X - originBlock.X, newBlock.Y - originBlock.Y, 0);
+
+      newBlockCoordinates.Add(block, new Coordinates(newBlock.X, newBlock.Y));
+      block.transform.Translate(netTranslation);
+    }
+
+    // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
+    foreach (var newCoordinates in newBlockCoordinates)
+    {
+      _blocks[newCoordinates.Value.X, newCoordinates.Value.Y] = newCoordinates.Key;
     }
   }
 
@@ -118,14 +163,14 @@ public class FieldBehavior : NetworkBehaviour
     switch (direction)
     {
       case Direction.Up:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X, coordinates.Y + 1));
+        return BlockAtCoordinates(new Coordinates(coordinates.X, coordinates.Y + 1));
       case Direction.Down:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X, coordinates.Y - 1));
+        return BlockAtCoordinates(new Coordinates(coordinates.X, coordinates.Y - 1));
       case Direction.Left:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X - 1, coordinates.Y));
+        return BlockAtCoordinates(new Coordinates(coordinates.X - 1, coordinates.Y));
       case Direction.Right:
       default:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X + 1, coordinates.Y));
+        return BlockAtCoordinates(new Coordinates(coordinates.X + 1, coordinates.Y));
     }
   }
 
@@ -156,7 +201,7 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
-  private BlockBehavior BlockAtCoordiantes(Coordinates coordinates)
+  private BlockBehavior BlockAtCoordinates(Coordinates coordinates)
   {
     return _blocks[coordinates.X, coordinates.Y];
   }
