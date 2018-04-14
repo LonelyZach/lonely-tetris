@@ -17,7 +17,10 @@ public class PlayerBehavior : NetworkBehaviour
     {
       return;
     }
-
+    if (Input.GetKeyDown(KeyCode.W))
+    {
+      CmdRotate();
+    }
     if (Input.GetKeyDown(KeyCode.S))
     {
       CmdMoveDown();
@@ -30,6 +33,12 @@ public class PlayerBehavior : NetworkBehaviour
     {
       CmdMoveRight();
     }
+  }
+
+  [Command]
+  public void CmdRotate()
+  {
+    FindObjectOfType<GameMasterBehavior>().ProcessPlayerInput(this, Direction.Up);
   }
 
   [Command]

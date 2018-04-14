@@ -54,7 +54,14 @@ public class GameMasterBehavior : NetworkBehaviour
 
     var activeTetromino = _activeTetrominoByPlayer[player];
 
-    _field.TryMoveTetromino(activeTetromino, input);
+    if (input == Direction.Up)
+    {
+      _field.TryRotateBlocksAsGroup(activeTetromino, 90);
+    }
+    else
+    {
+      _field.TryMoveTetromino(activeTetromino, input);
+    }
   }
 
   /// <summary>
