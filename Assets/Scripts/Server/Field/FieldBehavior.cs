@@ -106,10 +106,12 @@ public class FieldBehavior : NetworkBehaviour
     if(noNewFailures)
     {
       // We were able to move all the tetrominos. Break the recursive loop.
+      MoveBlocks(tetrominos.SelectMany(x => x.Blocks).ToList(), direction);
+
       var results = new Dictionary<TetrominoBehavior, bool>();
       foreach (var tetromino in tetrominos)
       {
-        MoveTetromino(tetromino, direction);
+        tetromino.Translate(direction.UnityVector());
         results.Add(tetromino, true);
       }
 

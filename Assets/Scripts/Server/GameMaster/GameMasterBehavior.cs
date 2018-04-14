@@ -5,7 +5,7 @@ using UnityEngine.Networking;
 
 public class GameMasterBehavior : NetworkBehaviour
 {
-  public const float TimeBetweenTetriminoDropsInSeconds = 5.00f;
+  public const float TimeBetweenTetriminoDropsInSeconds = 1.00f;
   public GameObject Field;
   public GameObject TetrominoFactory;
 
