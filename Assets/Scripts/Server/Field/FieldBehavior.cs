@@ -47,13 +47,14 @@ public class FieldBehavior : NetworkBehaviour
     return true;
   }
 
+
   /// <summary>
   /// Moves a tetromino, but only if there is not another block or a wall in the way.
   /// </summary>
-  /// <returns>A <c>bool</c> indicating if the move suceeded.</returns>
   public bool TryMoveTetromino(TetrominoBehavior tetromino, Direction direction)
   {
-    foreach (var block in tetromino.Blocks)
+    var blocks = tetromino.Blocks;
+    foreach (var block in blocks)
     {
       if (IsWallAdjacent(block, direction))
       {
@@ -68,7 +69,8 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
 
-    MoveBlocks(tetromino.Blocks, direction);
+    MoveTetromino(tetromino, direction);
+    
     return true;
   }
 
@@ -107,8 +109,9 @@ public class FieldBehavior : NetworkBehaviour
       MoveBlocks(tetrominos.SelectMany(x => x.Blocks).ToList(), direction);
 
       var results = new Dictionary<TetrominoBehavior, bool>();
-      foreach(var tetromino in tetrominos)
+      foreach (var tetromino in tetrominos)
       {
+        tetromino.Translate(direction.UnityVector());
         results.Add(tetromino, true);
       }
 
@@ -146,48 +149,183 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
-  private void MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
+  /// <summary>
+  /// Wrapper around MoveBlocks to represent a change of a tetromino object proper instead of just a set of blocks.
+  /// This helps maintain the point of rotation within the tetromino
+  /// </summary>
+  /// <param name="tetromino"></param>
+  /// <param name="direction"></param>
+  private void MoveTetromino(TetrominoBehavior tetromino, Direction direction)
+  {
+    var result = MoveBlocks(tetromino.Blocks, direction);
+    tetromino.Translate(result);
+  }
+
+  /// <summary>
+  /// Moves a specified set of blocks in a direction by unity
+  /// </summary>
+  /// <param name="blocks"></param>
+  /// <param name="direction"></param>
+  /// <returns></returns>
+  private Vector3 MoveBlocks(IList<BlockBehavior> blocks, Direction direction)
   {
     IDictionary<BlockBehavior, Coordinates> newBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
+    Vector3 netTranslation = new Vector3(0, 0, 0);
+
+    switch(direction)
+    {
+      case Direction.Up:
+        netTranslation = new Vector3(0, 1, 0);
+        break;
+      case Direction.Down:
+        netTranslation = new Vector3(0, -1, 0);
+        break;
+      case Direction.Left:
+        netTranslation = new Vector3(-1, 0, 0);
+        break;
+      case Direction.Right:
+        netTranslation = new Vector3(1, 0, 0);
+        break;
+      default:
+        netTranslation = new Vector3(0, 0, 0);
+        break;
+    }
 
     foreach (var block in blocks)
     {
       var coordinates = CoordinatesForBlock(block);
 
       _blocks[coordinates.X, coordinates.Y] = null;
-
-      switch (direction)
-      {
-        case Direction.Up:
-          coordinates = new Coordinates(coordinates.X, coordinates.Y + 1);
-          newBlockCoordinates.Add(block, coordinates);
-          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
-          break;
-        case Direction.Down:
-          coordinates = new Coordinates(coordinates.X, coordinates.Y - 1);
-          newBlockCoordinates.Add(block, coordinates);
-          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
-          break;
-        case Direction.Left:
-          coordinates = new Coordinates(coordinates.X - 1, coordinates.Y);
-          newBlockCoordinates.Add(block, coordinates);
-          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
-          break;
-        case Direction.Right:
-          coordinates = new Coordinates(coordinates.X + 1, coordinates.Y);
-          newBlockCoordinates.Add(block, coordinates);
-          block.transform.position = CoordinatesToGameWorldPosition(coordinates);
-          break;
-      }
+      var newCoords = new Coordinates(coordinates.X + Mathf.RoundToInt(netTranslation.x), coordinates.Y + Mathf.RoundToInt(netTranslation.y));
+      newBlockCoordinates.Add(block, newCoords);
+      block.transform.position = CoordinatesToGameWorldPosition(newCoords);
     }
 
     // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
-    foreach(var newCoordiantes in newBlockCoordinates)
+    foreach(var newCoordinates in newBlockCoordinates)
     {
-      _blocks[newCoordiantes.Value.X, newCoordiantes.Value.Y] = newCoordiantes.Key;
+      _blocks[newCoordinates.Value.X, newCoordinates.Value.Y] = newCoordinates.Key;
+    }
+    return netTranslation;
+  }
+
+  /// <summary>
+  /// Rotates a group of blocks if possible
+  /// </summary>
+  /// <param name="tetromino"></param>
+  public void TryRotateBlocksAsGroup(TetrominoBehavior tetromino, float theta)
+  {
+    theta *= Mathf.Deg2Rad;
+    var blocks = tetromino.Blocks;
+    var rotatePoint = tetromino.GetRotatePoint();
+    float sinTheta = Mathf.Sin(theta);
+    float cosTheta = Mathf.Cos(theta);
+    IDictionary<BlockBehavior, Coordinates> potentialBlockCoordinates = new Dictionary<BlockBehavior, Coordinates>();
+
+
+    //Find all of our new block locations, should this rotation go through
+    foreach (var block in blocks)
+    {
+      Coordinates originBlock = CoordinatesForBlock(block);
+      Coordinates transformedBlock = Coordinates.subtract(originBlock, rotatePoint);
+      Coordinates newBlock = new Coordinates(0, 0);
+
+      newBlock.X = Mathf.RoundToInt(transformedBlock.X * cosTheta - transformedBlock.Y * sinTheta);
+      newBlock.Y = Mathf.RoundToInt(transformedBlock.Y * cosTheta + transformedBlock.X * sinTheta);
+
+      newBlock = Coordinates.add(rotatePoint, newBlock);
+
+      Vector3 netTranslation = new Vector3(newBlock.X - originBlock.X, newBlock.Y - originBlock.Y, 0);
+
+      potentialBlockCoordinates.Add(block, new Coordinates(newBlock.X, newBlock.Y));
+    }
+
+    //Make sure that none of these are going on top of existing blocks, or outside the wall
+    //This super if block will try a shift in every direction (including none) to find a way to make rotation work
+    Direction shift = Direction.None;
+    if (TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.None))
+    {
+      shift = Direction.None;
+    }
+    else if(TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Up))
+    {
+      shift = Direction.Up;
+    }
+    else if(TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Down))
+    {
+      shift = Direction.Down;
+    }
+    else if(TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Left))
+    {
+      shift = Direction.Left;
+    }
+    else if(TryUnityCoordinateShiftForValidLocation(tetromino, potentialBlockCoordinates.Values, Direction.Right))
+    {
+      shift = Direction.Right;
+    }
+    else
+    {
+      //We have to bail, this won't work!
+      return;
+    }
+
+    tetromino.Translate(shift.UnityVector());
+
+    //Renaming to avoid confusion later.
+    var newBlockCoordinates = potentialBlockCoordinates;
+
+    //We are good to go. Clear out the blocks from the field
+    foreach (var block in blocks)
+    {
+      Coordinates originBlock = CoordinatesForBlock(block);
+      _blocks[originBlock.X, originBlock.Y] = null;
+      block.transform.position = CoordinatesToGameWorldPosition(newBlockCoordinates[block]);
+    }
+
+    // We don't record the new locations of the blocks until we've moved all of them. Otherwise, we might overwrite blocks that we just moved.
+    foreach (var newCoordinates in newBlockCoordinates)
+    {
+      _blocks[newCoordinates.Value.X, newCoordinates.Value.Y] = newCoordinates.Key;
     }
   }
 
+  private bool TryUnityCoordinateShiftForValidLocation(TetrominoBehavior tetromino, ICollection<Coordinates> coordinates, Direction direction)
+  {
+    MoveCoordinatesInDirectionByUnity(coordinates, direction);
+    if(IsValidDestinationCoordinateSetForTetromino(tetromino, coordinates))
+    {
+      return true;
+    }
+    else
+    {
+      //Undo our operation and return failure
+      MoveCoordinatesInDirectionByUnity(coordinates, direction.Opposite());
+      return false;
+    }
+  }
+  private void MoveCoordinatesInDirectionByUnity(ICollection<Coordinates> coordinates, Direction direction)
+  {
+    foreach (var coordinate in coordinates)
+    {
+      switch (direction)
+      {
+        case Direction.Down:
+          coordinate.Y -= 1;
+          break;
+        case Direction.Up:
+          coordinate.Y += 1;
+          break;
+        case Direction.Left:
+          coordinate.X -= 1;
+          break;
+        case Direction.Right:
+          coordinate.X += 1;
+          break;
+        case Direction.None:
+          break;
+      }
+    }
+  }
   private BlockBehavior GetBlockAdjacent(BlockBehavior block, Direction direction)
   {
     var coordinates = CoordinatesForBlock(block);
@@ -200,14 +338,42 @@ public class FieldBehavior : NetworkBehaviour
     switch (direction)
     {
       case Direction.Up:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X, coordinates.Y + 1));
+        return BlockAtCoordinates(new Coordinates(coordinates.X, coordinates.Y + 1));
       case Direction.Down:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X, coordinates.Y - 1));
+        return BlockAtCoordinates(new Coordinates(coordinates.X, coordinates.Y - 1));
       case Direction.Left:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X - 1, coordinates.Y));
+        return BlockAtCoordinates(new Coordinates(coordinates.X - 1, coordinates.Y));
       case Direction.Right:
       default:
-        return BlockAtCoordiantes(new Coordinates(coordinates.X + 1, coordinates.Y));
+        return BlockAtCoordinates(new Coordinates(coordinates.X + 1, coordinates.Y));
+    }
+  }
+
+  private bool IsValidDestinationCoordinateSetForTetromino(TetrominoBehavior tetromino, ICollection<Coordinates> coordinates)
+  {
+    foreach(var coordinate in coordinates)
+    {
+      if(!IsEmptyCoordinate(tetromino, coordinate))
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+  private bool IsEmptyCoordinate(TetrominoBehavior tetromino, Coordinates coordinate)
+  {
+    if(coordinate.X < 0 || coordinate.X >= Width || coordinate.Y < 0 || coordinate.Y >= Height)
+    {
+      return false;
+    }
+    BlockBehavior targetCoordinate = _blocks[coordinate.X, coordinate.Y];
+    if (tetromino.Blocks.Contains(targetCoordinate) || targetCoordinate == null)
+    {
+      return true;
+    }
+    else
+    {
+      return false;
     }
   }
 
@@ -238,7 +404,7 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
-  private BlockBehavior BlockAtCoordiantes(Coordinates coordinates)
+  private BlockBehavior BlockAtCoordinates(Coordinates coordinates)
   {
     return _blocks[coordinates.X, coordinates.Y];
   }
