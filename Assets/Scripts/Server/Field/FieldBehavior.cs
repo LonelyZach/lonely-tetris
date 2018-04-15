@@ -316,6 +316,7 @@ public class FieldBehavior : NetworkBehaviour
       return false;
     }
   }
+
   private void MoveCoordinatesInDirectionByUnity(ICollection<Coordinates> coordinates, Direction direction)
   {
     foreach (var coordinate in coordinates)
@@ -339,6 +340,7 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
   }
+
   private BlockBehavior GetBlockAdjacent(BlockBehavior block, Direction direction)
   {
     var coordinates = CoordinatesForBlock(block);
@@ -373,6 +375,7 @@ public class FieldBehavior : NetworkBehaviour
     }
     return true;
   }
+
   private bool IsEmptyCoordinate(TetrominoBehavior tetromino, Coordinates coordinate)
   {
     if(coordinate.X < 0 || coordinate.X >= Width || coordinate.Y < 0 || coordinate.Y >= Height)

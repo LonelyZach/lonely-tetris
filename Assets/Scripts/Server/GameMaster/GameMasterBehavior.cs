@@ -2,12 +2,14 @@
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 
 public class GameMasterBehavior : NetworkBehaviour
 {
   public const float TimeBetweenTetriminoDropsInSeconds = 1.00f;
   public GameObject Field;
   public GameObject TetrominoFactory;
+  public Text scoreText;
 
   private FieldBehavior _field;
   private TetrominoFactoryBehavior _tetrominoFactory;
@@ -18,6 +20,7 @@ public class GameMasterBehavior : NetworkBehaviour
   // Use this for initialization
   public void Start()
   {
+    scoreText.text = "12345";
     _players = new List<PlayerBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
