@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.Networking;
 
 public class PlayerBehavior : NetworkBehaviour
@@ -9,9 +10,10 @@ public class PlayerBehavior : NetworkBehaviour
   public float rotateKeyDelay = 0.2f;
   private float rotateTimePassed = 0f;
 
-  //These help us get instant feedback for a keypress
-  private bool movementKeyPressedLately = false;
-  private bool rotateKeyPressedLately = false;
+  private static KeyCode MOVE_ROTATE = KeyCode.W;
+  private static KeyCode MOVE_LEFT = KeyCode.A;
+  private static KeyCode MOVE_DOWN = KeyCode.S;
+  private static KeyCode MOVE_RIGHT = KeyCode.D;
 
   public void Start()
   {
@@ -31,56 +33,71 @@ public class PlayerBehavior : NetworkBehaviour
       return;
     }
 
-    if(movementTimePassed <= 0 || !movementKeyPressedLately)
+    if(movementTimePassed <= 0)
     {
       movementTimePassed = movementKeyDelay;
-      movementKeyPressedLately = false;
 
-      if (Input.GetKey(KeyCode.S))
-      {
-        movementKeyPressedLately = true;
-        if (Input.GetKeyDown(KeyCode.S))
-        {
-          movementTimePassed = 2 * movementKeyDelay;
-        }
+      float movementTimeMultiplier = CheckKeyAndInitialPress(MOVE_DOWN);
+      movementTimeMultiplier = Mathf.Max(movementTimeMultiplier, CheckKeyAndInitialPress(MOVE_LEFT));
+      movementTimeMultiplier = Mathf.Max(movementTimeMultiplier, CheckKeyAndInitialPress(MOVE_RIGHT));
 
-        CmdMoveDown();
-      }
-
-      //Can only move left or right but not both
-      if (Input.GetKey(KeyCode.A))
-      {
-        movementKeyPressedLately = true;
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-          movementKeyPressedLately = true;
-          movementTimePassed = 2 * movementKeyDelay;
-        }
-        CmdMoveLeft();
-      }
-      else if (Input.GetKey(KeyCode.D))
-      {
-        movementKeyPressedLately = true;
-        if (Input.GetKeyDown(KeyCode.D))
-        {
-          movementKeyPressedLately = true;
-          movementTimePassed = 2 * movementKeyDelay;
-        }
-        CmdMoveRight();
-      }
+      movementTimePassed *= movementTimeMultiplier;
     }
-    if (rotateTimePassed <= 0 || !rotateKeyPressedLately)
+    if (rotateTimePassed <= 0)
     {
       rotateTimePassed = rotateKeyDelay;
-      if (Input.GetKey(KeyCode.W))
+      rotateTimePassed *= CheckKeyAndInitialPress(MOVE_ROTATE);
+    }
+  }
+
+  /// <summary>
+  /// Returns multiplier based on whether the key is being held or just now being pressed
+  /// </summary>
+  /// <param name="key">Key being checked</param>
+  /// <returns></returns>
+  private float CheckKeyAndInitialPress(KeyCode key)
+  {
+    float returnValue = 0;
+    if (Input.GetKey(key))
+    {
+      if (Input.GetKeyDown(key))
       {
-        CmdRotate();
-        rotateKeyPressedLately = true;
+        returnValue = 2f;
       }
       else
       {
-        rotateKeyPressedLately = false;
+        returnValue = 1f;
       }
+      RunCommand(key);
+    }
+    return returnValue;
+  }
+
+  /// <summary>
+  /// Runs appropriate network command based on the key input
+  /// </summary>
+  /// <param name="key"></param>
+  private void RunCommand(KeyCode key)
+  {
+    if (key == MOVE_ROTATE)
+    {
+      CmdRotate();
+    }
+    else if (key == MOVE_LEFT)
+    {
+      CmdMoveLeft();
+    }
+    else if (key == MOVE_DOWN)
+    {
+      CmdMoveDown();
+    }
+    else if (key == MOVE_RIGHT)
+    {
+      CmdMoveRight();
+    }
+    else
+    {
+      Debug.LogError("Received invalid key code command");
     }
   }
 
