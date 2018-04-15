@@ -18,6 +18,18 @@ public class FieldBehavior : NetworkBehaviour
     gameObject.transform.localScale = new Vector3(Width, Height, 1);
   }
 
+  public void ClearField()
+  {
+    foreach(var block in _blocks)
+    {
+      if(block != null)
+      {
+        block.Delete();
+      }
+    }
+    _blocks = new BlockBehavior[Width, Height];
+  }
+
   public BlockBehavior SpawnBlock(Coordinates coordinates, bool isSettled)
   {
     if (_blocks[coordinates.X, coordinates.Y] != null)

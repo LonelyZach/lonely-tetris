@@ -13,4 +13,9 @@ public class BlockBehavior : MonoBehaviour
 	void Update () {
 		
 	}
+
+  public void Delete()
+  {
+    Destroy(gameObject);
+  }
 }
