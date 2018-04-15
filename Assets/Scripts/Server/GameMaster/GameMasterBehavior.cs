@@ -15,6 +15,7 @@ public class GameMasterBehavior : NetworkBehaviour
   private IDictionary<PlayerBehavior, TetrominoBehavior> _activeTetrominoByPlayer;
   private float _timeToNextTetrominoDropInSeconds;
 
+
   // Use this for initialization
   public void Start()
   {
@@ -23,6 +24,7 @@ public class GameMasterBehavior : NetworkBehaviour
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
     _field = Field.GetComponent<FieldBehavior>();
     _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
+    ResetGame();
   }
 
   // Update is called once per frame
@@ -30,13 +32,18 @@ public class GameMasterBehavior : NetworkBehaviour
   {
     if (FindObjectsOfType<PlayerBehavior>().Count() < 2)
     {
-      // Do not start the game until we have 2 palyers connected.
+      // Do not start the game until we have 2 players connected.
       return;
     }
 
     //PunishPlayerIfNeeded();
     SpawnNewTetrominosIfNeeded();
     MoveTetrominosDownIfNeeded();
+  }
+
+  public void ResetGame()
+  {
+    _field.ClearField();
   }
 
   public void RegisterPlayer(PlayerBehavior playerToRegister)
@@ -76,6 +83,7 @@ public class GameMasterBehavior : NetworkBehaviour
 
   private void SpawnNewTetrominosIfNeeded()
   {
+    bool gameOver = false;
     if (ActiveTetrominos().Any())
     {
       // If any players are still controlling an active tetromino, do not spawn new tetrominos.
@@ -87,6 +95,12 @@ public class GameMasterBehavior : NetworkBehaviour
     foreach (var player in _players)
     {
       var tetromino = _tetrominoFactory.SpawnTetromino(distanceBetweenPlayerSpawns * i++);
+      if(tetromino == null)
+      {
+        //GAME OVER
+        gameOver = true;
+        break;
+      }
 
       if (!_activeTetrominoByPlayer.ContainsKey(player))
       {
@@ -99,6 +113,10 @@ public class GameMasterBehavior : NetworkBehaviour
     }
 
     ResetTetrominoDropCounter();
+    if(gameOver)
+    {
+      ResetGame();
+    }
   }
 
   private void MoveTetrominosDownIfNeeded()
