@@ -9,23 +9,26 @@ public class GameMasterBehavior : NetworkBehaviour
   public const float TimeBetweenTetriminoDropsInSeconds = 1.00f;
   public GameObject Field;
   public GameObject TetrominoFactory;
-  public Text scoreText;
+  public GameObject GameState;
 
   private FieldBehavior _field;
   private TetrominoFactoryBehavior _tetrominoFactory;
   private IList<PlayerBehavior> _players;
   private IDictionary<PlayerBehavior, TetrominoBehavior> _activeTetrominoByPlayer;
   private float _timeToNextTetrominoDropInSeconds;
+  private GameStateBehavior _gameStateBehavior;
 
   // Use this for initialization
   public void Start()
   {
-    scoreText.text = "12345";
     _players = new List<PlayerBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
     _field = Field.GetComponent<FieldBehavior>();
+    _gameStateBehavior = GameState.GetComponent<GameStateBehavior>();
     _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
+
+    NetworkServer.SpawnObjects();
   }
 
   // Update is called once per frame
@@ -85,6 +88,8 @@ public class GameMasterBehavior : NetworkBehaviour
       return;
     }
 
+    _gameStateBehavior.AddToScore(10);
+
     var distanceBetweenPlayerSpawns = 4;
     var i = 1;
     foreach (var player in _players)
@@ -142,4 +147,5 @@ public class GameMasterBehavior : NetworkBehaviour
   {
     return _activeTetrominoByPlayer.Where(x => x.Value != null).Select(x => x.Value).ToList();
   }
+
 }
