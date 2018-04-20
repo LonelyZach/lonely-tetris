@@ -21,10 +21,12 @@ public class TetrominoBehavior : MonoBehaviour
   {
     _rotatePoint = rotatePoint;
   }
+
   public Coordinates GetRotatePoint()
   {
     return _rotatePoint;
   }
+
   public void Translate(Vector3 translation)
   {
     _rotatePoint.X += Mathf.RoundToInt(translation.x);

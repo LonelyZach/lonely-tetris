@@ -13,6 +13,7 @@ public class GameMasterBehavior : NetworkBehaviour
   private TetrominoFactoryBehavior _tetrominoFactory;
   private IList<PlayerBehavior> _players;
   private IDictionary<PlayerBehavior, TetrominoBehavior> _activeTetrominoByPlayer;
+  private IList<TetrominoBehavior> _activeTetrominosNotControlledByPlayers;
   private float _timeToNextTetrominoDropInSeconds;
 
   // Use this for initialization
@@ -20,6 +21,7 @@ public class GameMasterBehavior : NetworkBehaviour
   {
     _players = new List<PlayerBehavior>();
     _activeTetrominoByPlayer = new Dictionary<PlayerBehavior, TetrominoBehavior>();
+    _activeTetrominosNotControlledByPlayers = new List<TetrominoBehavior>();
     _tetrominoFactory = TetrominoFactory.GetComponent<TetrominoFactoryBehavior>();
     _field = Field.GetComponent<FieldBehavior>();
     _timeToNextTetrominoDropInSeconds = TimeBetweenTetriminoDropsInSeconds;
@@ -123,8 +125,16 @@ public class GameMasterBehavior : NetworkBehaviour
         block.IsSettled = true;
       }
 
-      var playerControllingTetromino = _activeTetrominoByPlayer.Single(x => x.Value == landedTetromino).Key;
-      _activeTetrominoByPlayer[playerControllingTetromino] = null;
+      var playerControllingTetromino = _activeTetrominoByPlayer.SingleOrDefault(x => x.Value == landedTetromino).Key;
+      if (playerControllingTetromino != null)
+      {
+        _activeTetrominoByPlayer[playerControllingTetromino] = null;
+      }
+      else
+      {
+        _activeTetrominosNotControlledByPlayers.Remove(landedTetromino);
+      }
+
       Destroy(landedTetromino);
     }
 
@@ -138,7 +148,8 @@ public class GameMasterBehavior : NetworkBehaviour
 
   private IList<TetrominoBehavior> ActiveTetrominos()
   {
-    return _activeTetrominoByPlayer.Where(x => x.Value != null).Select(x => x.Value).ToList();
+    var playerTetrominos = _activeTetrominoByPlayer.Where(x => x.Value != null).Select(x => x.Value).ToList();
+    return playerTetrominos.Concat(_activeTetrominosNotControlledByPlayers).ToList();
   }
 
   private void RemoveCompleteLines()
@@ -146,7 +157,49 @@ public class GameMasterBehavior : NetworkBehaviour
     var blocksToRemove = _field.FindSettledBlocksComprisingCompleteLines();
     if(blocksToRemove.Any())
     {
+      var highestYAxis = blocksToRemove.Max(x => _field.CoordinatesForBlock(x).Y);
       _field.RemoveBlocks(blocksToRemove.ToList());
+
+      // Once we've removed the line, we need to tell the blocks above the line to fall. An easy way to do this is to add them
+      // to a new twtromino and let it fall.
+      SpawnTetrominosForBlockGroup(_field.GetAllSettledBlocksAboveYAxis(highestYAxis));
     }
+  }
+
+  private void SpawnTetrominosForBlockGroup(IEnumerable<BlockBehavior> blocks)
+  {
+    /*
+     * If the block group contains groups of blocks that are separated by empty squares they should be put into their own tetrominos.
+     */
+
+    var tetrominoBlocks = GetConnectedSettledBlocks(blocks.First(), blocks);
+
+    var tetromino = _tetrominoFactory.SpawnTetrominoFromExistingblocks(tetrominoBlocks);
+    _activeTetrominosNotControlledByPlayers.Add(tetromino);
+
+    var unnusedBlocks = blocks.Where(x => !tetrominoBlocks.Contains(x));
+
+    if(unnusedBlocks.Any())
+    {
+      SpawnTetrominosForBlockGroup(unnusedBlocks);
+    }
+  }
+
+  private IEnumerable<BlockBehavior> GetConnectedSettledBlocks(BlockBehavior block, IEnumerable<BlockBehavior> validBlocks)
+  {
+    var foundBlocks = new List<BlockBehavior>() { block };
+    var uncheckedBlocks = new List<BlockBehavior>() { block };
+
+    while (uncheckedBlocks.Any())
+    {
+      var blockBeingChecked = uncheckedBlocks.First();
+      uncheckedBlocks.Remove(blockBeingChecked);
+
+      var adjacentBlocks = _field.GetBlocksAdjacent(block).Where(x => x.IsSettled = true && !foundBlocks.Contains(x) && validBlocks.Contains(x));
+      uncheckedBlocks.AddRange(adjacentBlocks);
+      foundBlocks.AddRange(adjacentBlocks);
+    }
+
+    return foundBlocks;
   }
 }

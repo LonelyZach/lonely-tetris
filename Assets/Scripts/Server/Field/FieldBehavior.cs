@@ -151,6 +151,7 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
+  // TODO: This will cause an error if there are unsettled blocks (like blocks in a tetromino) on the bottom row.
   public void AddBottomRow()
   {
     var allBlocks = GetAllSettledBlocks();
@@ -160,6 +161,34 @@ public class FieldBehavior : NetworkBehaviour
     {
       SpawnBlock(new Coordinates(i, 0), isSettled: true);
     }
+  }
+
+  public IEnumerable<BlockBehavior> GetAllSettledBlocksAboveYAxis(int yAxis)
+  {
+    for (int y = Height - 1; y > yAxis; y--)
+    {
+      for (int x = 0; x < Width; x++)
+      {
+        var block = BlockAtCoordinates(new Coordinates(x, y));
+        if (block != null && block.IsSettled)
+        {
+          yield return block;
+        }
+      }
+    }
+  }
+
+  public IEnumerable<BlockBehavior> GetBlocksAdjacent(BlockBehavior block)
+  {
+    var above = GetBlockAdjacent(block, Direction.Up);
+    var below = GetBlockAdjacent(block, Direction.Down);
+    var left = GetBlockAdjacent(block, Direction.Left);
+    var right = GetBlockAdjacent(block, Direction.Right);
+
+    if (above != null) yield return above;
+    if (below != null) yield return below;
+    if (left != null) yield return left;
+    if (right != null) yield return right;
   }
 
   /// <summary>
@@ -318,7 +347,8 @@ public class FieldBehavior : NetworkBehaviour
 
       for (int x = 0; x < Width; x++)
       {
-        if (BlockAtCoordinates(new Coordinates(x, y)) == null)
+        var block = BlockAtCoordinates(new Coordinates(x, y));
+        if (block == null || !block.IsSettled)
         {
           isFullLine = false;
           break;
@@ -336,6 +366,23 @@ public class FieldBehavior : NetworkBehaviour
     }
   }
 
+  public Coordinates CoordinatesForBlock(BlockBehavior block)
+  {
+    for (int x = 0; x < Width; x++)
+    {
+      for (int y = 0; y < Height; y++)
+      {
+        if (_blocks[x, y] == block)
+        {
+          return new Coordinates(x, y);
+        }
+      }
+    }
+
+    Debug.LogError("Could not find coordinates for a block");
+    return new Coordinates(0, 0);
+  }
+
   private bool TryUnityCoordinateShiftForValidLocation(TetrominoBehavior tetromino, ICollection<Coordinates> coordinates, Direction direction)
   {
     MoveCoordinatesInDirectionByUnity(coordinates, direction);
@@ -350,6 +397,7 @@ public class FieldBehavior : NetworkBehaviour
       return false;
     }
   }
+
   private void MoveCoordinatesInDirectionByUnity(ICollection<Coordinates> coordinates, Direction direction)
   {
     foreach (var coordinate in coordinates)
@@ -373,6 +421,7 @@ public class FieldBehavior : NetworkBehaviour
       }
     }
   }
+
   private BlockBehavior GetBlockAdjacent(BlockBehavior block, Direction direction)
   {
     var coordinates = CoordinatesForBlock(block);
@@ -407,6 +456,7 @@ public class FieldBehavior : NetworkBehaviour
     }
     return true;
   }
+
   private bool IsEmptyCoordinate(TetrominoBehavior tetromino, Coordinates coordinate)
   {
     if(coordinate.X < 0 || coordinate.X >= Width || coordinate.Y < 0 || coordinate.Y >= Height)
@@ -465,23 +515,6 @@ public class FieldBehavior : NetworkBehaviour
     return new Vector3(coordinates.X - xOffset, coordinates.Y - yOffset);
   }
 
-  private Coordinates CoordinatesForBlock(BlockBehavior block)
-  {
-    for (int x = 0; x < Width; x++)
-    {
-      for (int y = 0; y < Height; y++)
-      {
-        if (_blocks[x, y] == block)
-        {
-          return new Coordinates(x, y);
-        }
-      }
-    }
-
-    Debug.LogError("Could not find coordinates for a block");
-    return new Coordinates(0, 0);
-  }
-
   private IList<BlockBehavior> GetAllSettledBlocks()
   {
     var result = new List<BlockBehavior>(_blocks.Length);
@@ -501,6 +534,7 @@ public class FieldBehavior : NetworkBehaviour
 
     return result;
   }
+
   private void RemoveBlock(BlockBehavior block)
   {
     var coordinates = CoordinatesForBlock(block);
