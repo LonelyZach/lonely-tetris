@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Networking;
 
 public class TetrominoFactoryBehavior : NetworkBehaviour
@@ -38,25 +39,41 @@ public class TetrominoFactoryBehavior : NetworkBehaviour
 
     return tetromino.GetComponent<TetrominoBehavior>();
   }
-    private Coordinates[] GetBlock(int x)
+
+  public TetrominoBehavior SpawnTetrominoFromExistingblocks(IEnumerable<BlockBehavior> blocks)
+  {
+    var tetromino = GameObject.Instantiate(TetrominoPrefab).GetComponent<TetrominoBehavior>();
+
+    foreach(var block in blocks)
     {
-        float y = Random.Range(0, 7);
-        if (y >= 0 && y < 1) //T
-            return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x, 33), };
-        else if (y >= 1 && y < 2)  //Line
-            return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 2, 34), };
-        else if (y >= 2 && y < 3)  //L-Right
-            return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 1, 33), };
-        else if (y >= 3 && y < 4)  //L-Left
-            return new Coordinates[] { new Coordinates(x - 1, 33), new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), };
-        else if (y >= 4 && y < 5)  //Square
-            return new Coordinates[] { new Coordinates(x, 33), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 1, 33), };
-        else if (y >= 5 && y < 6)  //Z-Left
-            return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x, 33), new Coordinates(x + 1, 33), };
-        else if (y >= 6 && y <= 7)  //Z-Right
-            return new Coordinates[] { new Coordinates(x - 1, 33), new Coordinates(x, 34), new Coordinates(x, 33), new Coordinates(x + 1, 34), };
-        else
-            Debug.LogError("Could not return a coordinate array for a new block. Not Zeb's fault.");
-        return new Coordinates[] { new Coordinates(0, 0) };
-    }  
+      block.IsSettled = false;
+      tetromino.AddBlock(block);
+    }
+
+    tetromino.SetRotatePoint(new Coordinates(0, 0));
+
+    return tetromino.GetComponent<TetrominoBehavior>();
+  }
+
+  private Coordinates[] GetBlock(int x)
+  {
+      float y = Random.Range(0, 7);
+      if (y >= 0 && y < 1) //T
+          return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x, 33), };
+      else if (y >= 1 && y < 2)  //Line
+          return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 2, 34), };
+      else if (y >= 2 && y < 3)  //L-Right
+          return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 1, 33), };
+      else if (y >= 3 && y < 4)  //L-Left
+          return new Coordinates[] { new Coordinates(x - 1, 33), new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x + 1, 34), };
+      else if (y >= 4 && y < 5)  //Square
+          return new Coordinates[] { new Coordinates(x, 33), new Coordinates(x, 34), new Coordinates(x + 1, 34), new Coordinates(x + 1, 33), };
+      else if (y >= 5 && y < 6)  //Z-Left
+          return new Coordinates[] { new Coordinates(x - 1, 34), new Coordinates(x, 34), new Coordinates(x, 33), new Coordinates(x + 1, 33), };
+      else if (y >= 6 && y <= 7)  //Z-Right
+          return new Coordinates[] { new Coordinates(x - 1, 33), new Coordinates(x, 34), new Coordinates(x, 33), new Coordinates(x + 1, 34), };
+      else
+          Debug.LogError("Could not return a coordinate array for a new block. Not Zeb's fault.");
+      return new Coordinates[] { new Coordinates(0, 0) };
+  }  
 }
